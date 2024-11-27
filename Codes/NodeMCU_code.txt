@@ -1,0 +1,100 @@
+Node MCU RX 
+
+
+#define BLYNK_TEMPLATE_ID "TMPL3Cc3alv8W"
+#define BLYNK_TEMPLATE_NAME "Xbee"
+#define BLYNK_AUTH_TOKEN "A6vOBwp-FyPCI0DjkaB2Zjvzic63r5Nj"
+
+#define BLYNK_PRINT Serial
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+
+char ssid[] = "poco f1";
+char pass[] = "Chanduy@09";
+
+#include<SoftwareSerial.h>
+
+//For communicating with zigbee
+SoftwareSerial zigbee(D2,D1); // XBee pin 2 to NodeMCU pin D2 and XBee pin 3 to NodeMCU pin D1
+
+bool started= false;//True: Message is strated
+bool ended   = false;//True: Message is finished
+char incomingByte ; //Variable to store the incoming byte
+char msg[15];    //Message - array
+byte index_;     //Index of array
+
+int buzz = D5;
+void setup() {
+
+  //Start the serial communication
+  Serial.begin(9600); //Baud rate must be the same as is on xBee module
+  zigbee.begin(9600);
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  pinMode(buzz, OUTPUT);
+}
+
+void loop() {
+ 
+  while (zigbee.available()>0){
+    //Read the incoming byte
+    incomingByte = zigbee.read();
+//    Serial.println(incomingByte);
+    //Start the message when the '<' symbol is received
+    if(incomingByte == '<')
+    {
+     started = true;
+     index_ = 0;
+     msg[index_] = '\0'; // Throw away any incomplete packet
+   }
+   //End the message when the '>' symbol is received
+   else if(incomingByte == '>')
+   {
+     ended = true;
+     break; // Done reading - exit from while loop!
+   }
+   //Read the message!
+   else
+   {
+     if(index_ < 12) // Make sure there is room
+     {
+       msg[index_] = incomingByte; // Add char to array
+       index_++;
+       msg[index_] = '\0'; // Add NULL to end
+     }
+   }
+ }
+ 
+ if(started && ended)
+ {
+   String temp = String(msg).substring(0, 2);
+   String humi = String(msg).substring(3, 5);
+   String fire = String(msg).substring(6, 7);
+   String sos = String(msg).substring(8, 9);
+   String gas = String(msg).substring(10, 13);
+
+   if (temp.toInt() > 50 || fire.toInt() == 0 || sos.toInt() == 0 || gas.toInt() > 300)
+   {
+    digitalWrite(buzz, HIGH);
+   }
+   else
+   {
+    digitalWrite(buzz, LOW);
+   }
+   Serial.println("values ");
+   Serial.println(temp); //Only for debugging
+   Serial.println(humi);
+   Serial.println(fire);
+   Serial.println(sos);
+   Serial.println(gas);
+   Blynk.virtualWrite(V0, temp);
+   Blynk.virtualWrite(V1, humi);
+   Blynk.virtualWrite(V2, fire);
+   Blynk.virtualWrite(V3, sos);
+   Blynk.virtualWrite(V4, gas);
+   index_ = 0;
+   msg[index_] = '\0';
+   started = false;
+   ended = false;
+ }
+
+}

@@ -1,0 +1,96 @@
+Reception END
+
+#include<SoftwareSerial.h>
+#include <LiquidCrystal_I2C.h>  /*include LCD I2C Library*/
+LiquidCrystal_I2C lcd(0x27,16,2);
+
+//For communicating with zigbee
+SoftwareSerial zigbee(2,3); // XBee pin 2 to arduino pin 2 and XBee pin 3 to arduino pin 3
+
+bool started= false;//True: Message is strated
+bool ended   = false;//True: Message is finished
+char incomingByte ; //Variable to store the incoming byte
+char msg[15];    //Message - array
+byte index;     //Index of array
+
+void setup() {
+
+  //Start the serial communication
+  Serial.begin(9600); //Baud rate must be the same as is on xBee module
+  zigbee.begin(9600);
+  lcd.init();  /*LCD display initialized*/
+  lcd.clear();     /*Clear LCD Display*/
+  lcd.backlight();      /*Turn ON LCD Backlight*/
+  lcd.setCursor(2,0);   /*Set cursor to Row 1*/
+  lcd.print("Xbee RX"); /*print text on LCD*/
+  lcd.setCursor(2,1);   /*set cursor on row 2*/
+  lcd.print("Welcome..");
+  delay(2000);
+}
+
+void loop() {
+ 
+  while (zigbee.available()>0){
+    //Read the incoming byte
+    incomingByte = zigbee.read();
+//    Serial.println(incomingByte);
+    //Start the message when the '<' symbol is received
+    if(incomingByte == '<')
+    {
+     started = true;
+     index = 0;
+     msg[index] = '\0'; // Throw away any incomplete packet
+   }
+   //End the message when the '>' symbol is received
+   else if(incomingByte == '>')
+   {
+     ended = true;
+     break; // Done reading - exit from while loop!
+   }
+   //Read the message!
+   else
+   {
+     if(index < 12) // Make sure there is room
+     {
+     
+       msg[index] = incomingByte; // Add char to array
+       index++;
+       msg[index] = '\0'; // Add NULL to end
+     }
+   }
+ }
+ 
+ if(started && ended)
+ {
+  Serial.println(msg);
+   String temp = String(msg).substring(0, 2);
+   String humi = String(msg).substring(3, 5);
+   String fire = String(msg).substring(6, 7);
+   String sos = String(msg).substring(8, 9);
+   String gas = String(msg).substring(10, 13);
+   Serial.println("values ");
+   Serial.println(temp); //Only for debugging
+   Serial.println(humi);
+   Serial.println(fire);
+   Serial.println(sos);
+   Serial.println(gas);
+   lcd.clear();
+   lcd.setCursor(0,0);   /*Set cursor to Row 1*/
+   lcd.print("T : ");
+   lcd.print(temp);/*print text on LCD*/
+   lcd.print("  H : ");
+   lcd.print(humi);
+   lcd.setCursor(0,1);   /*set cursor on row 2*/
+   lcd.print("F: ");
+   lcd.print(fire);
+   lcd.print(" S: ");
+   lcd.print(sos);
+   lcd.print(" G: ");
+   lcd.print(gas);
+   index = 0;
+   msg[index] = '\0';
+   started = false;
+   ended = false;
+ }
+
+}
